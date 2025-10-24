@@ -1,6 +1,5 @@
 # app.py (GRID YAPISINI VE DİNAMİK/STATİK RENKLERİ DESTEKLEYEN SON VERSİYON)
 
-if __name__=='__main__':
 import os
 import pandas as pd
 from flask import Flask, render_template, redirect, url_for, request, session, flash, send_file
@@ -464,3 +463,4 @@ def print_preview():
 //    if __name__ == '__main__':
 
 //       app.run(debug=True)
+
