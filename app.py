@@ -460,7 +460,8 @@ def print_preview():
     return render_template('print_preview.html', labels=labels)
 
 
-//    if __name__ == '__main__':
+#    if __name__ == '__main__':
+#
+#       app.run(debug=True)
 
-//       app.run(debug=True)
 
