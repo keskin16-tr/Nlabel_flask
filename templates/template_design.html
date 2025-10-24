@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Şablon Tasarım{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Etiket Şablonu Tasarımı (Dinamik Tablo)</h2>
+
+<div class="alert alert-info">
+    Satır ve sütun sayısını belirleyin, ardından "Tabloyu Oluştur" butonuna basın.  
+    Oluşan tablo üzerinde hücreleri seçip birleştirebilir, hücreye içerik tipi atayabilirsiniz.
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-grid"></i> Tablo Ayarları
+            </div>
+            <div class="card-body">
+                <form id="grid_form">
+                    <div class="mb-3">
+                        <label class="form-label">Satır Sayısı</label>
+                        <input type="number" class="form-control" id="row_count" value="4" min="1" max="20" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sütun Sayısı</label>
+                        <input type="number" class="form-control" id="col_count" value="6" min="1" max="12" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hücre Genişliği</label>
+                        <input type="text" class="form-control" id="cell_width" value="120px">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hücre Yüksekliği</label>
+                        <input type="text" class="form-control" id="cell_height" value="40px">
+                    </div>
+                    <button type="button" id="generate_table" class="btn btn-success w-100">
+                        <i class="bi bi-table"></i> Tabloyu Oluştur
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <i class="bi bi-gear"></i> Hücre İşlemleri
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Bir hücreyi seçtikten sonra işlemleri uygulayabilirsiniz.</p>
+                <button class="btn btn-outline-primary w-100 mb-2" id="merge_cells">
+                    <i class="bi bi-arrows-collapse"></i> Hücreleri Birleştir
+                </button>
+                <button class="btn btn-outline-danger w-100 mb-2" id="split_cells">
+                    <i class="bi bi-arrows-expand"></i> Birleşimi Kaldır
+                </button>
+                <hr>
+                <button class="btn btn-outline-info w-100 mb-2" id="export_json">
+                    <i class="bi bi-download"></i> Dışa Aktar (JSON)
+                </button>
+                <input type="file" id="import_json" accept=".json" class="form-control">
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-eye"></i> Şablon Önizleme
+            </div>
+            <div class="card-body">
+                <div id="grid_preview" class="border p-2 text-center text-muted">
+                    Henüz tablo oluşturulmadı.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const preview = document.getElementById("grid_preview");
+    let selectedCells = [];
+
+    function createTable(rows, cols, width, height) {
+        let table = document.createElement("table");
+        table.className = "table table-bordered text-center align-middle";
+        table.style.userSelect = "none";
+        table.style.tableLayout = "fixed";
+        table.style.width = "100%";
+        for (let r = 0; r < rows; r++) {
+            let tr = document.createElement("tr");
+            for (let c = 0; c < cols; c++) {
+                let td = document.createElement("td");
+                td.textContent = `${r + 1}-${c + 1}`;
+                td.dataset.row = r;
+                td.dataset.col = c;
+                td.style.width = width;
+                td.style.height = height;
+                td.addEventListener("click", () => selectCell(td));
+                tr.appendChild(td);
+            }
+            table.appendChild(tr);
+        }
+        preview.innerHTML = "";
+        preview.appendChild(table);
+    }
+
+    function selectCell(cell) {
+        if (cell.classList.contains("table-primary")) {
+            cell.classList.remove("table-primary");
+            selectedCells = selectedCells.filter(c => c !== cell);
+        } else {
+            cell.classList.add("table-primary");
+            selectedCells.push(cell);
+        }
+    }
+
+    function mergeSelected() {
+        if (selectedCells.length < 2) {
+            alert("Birleştirmek için en az iki hücre seçin!");
+            return;
+        }
+        const rows = selectedCells.map(c => parseInt(c.dataset.row));
+        const cols = selectedCells.map(c => parseInt(c.dataset.col));
+        const minR = Math.min(...rows), maxR = Math.max(...rows);
+        const minC = Math.min(...cols), maxC = Math.max(...cols);
+        const master = selectedCells[0];
+        master.rowSpan = maxR - minR + 1;
+        master.colSpan = maxC - minC + 1;
+        selectedCells.forEach(c => {
+            if (c !== master) c.remove();
+        });
+        master.classList.remove("table-primary");
+        selectedCells = [];
+    }
+
+    function splitSelected() {
+        if (selectedCells.length !== 1) {
+            alert("Ayrıştırmak için tek bir birleşik hücre seçin!");
+            return;
+        }
+        const cell = selectedCells[0];
+        const row = cell.parentElement;
+        const colIndex = Array.from(row.children).indexOf(cell);
+        const rowSpan = cell.rowSpan;
+        const colSpan = cell.colSpan;
+        cell.rowSpan = 1;
+        cell.colSpan = 1;
+
+        // yeniden hücre ekle
+        const table = preview.querySelector("table");
+        for (let r = 0; r < rowSpan; r++) {
+            const currentRow = table.rows[row.rowIndex + r];
+            for (let c = 0; c < colSpan; c++) {
+                if (r === 0 && c === 0) continue;
+                const newCell = document.createElement("td");
+                newCell.textContent = `${row.rowIndex + r + 1}-${colIndex + c + 1}`;
+                newCell.dataset.row = row.rowIndex + r;
+                newCell.dataset.col = colIndex + c;
+                newCell.style.width = document.getElementById("cell_width").value;
+                newCell.style.height = document.getElementById("cell_height").value;
+                newCell.addEventListener("click", () => selectCell(newCell));
+                currentRow.insertCell(colIndex + c);
+                currentRow.replaceChild(newCell, currentRow.cells[colIndex + c]);
+            }
+        }
+        cell.classList.remove("table-primary");
+        selectedCells = [];
+    }
+
+    function exportJSON() {
+        const table = preview.querySelector("table");
+        if (!table) return alert("Tablo yok!");
+        const data = [];
+        for (const row of table.rows) {
+            const rowData = [];
+            for (const cell of row.cells) {
+                rowData.push({
+                    text: cell.textContent,
+                    rowSpan: cell.rowSpan,
+                    colSpan: cell.colSpan
+                });
+            }
+            data.push(rowData);
+        }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "etiket_sablonu.json";
+        link.click();
+    }
+
+    document.getElementById("generate_table").addEventListener("click", () => {
+        const rows = parseInt(document.getElementById("row_count").value);
+        const cols = parseInt(document.getElementById("col_count").value);
+        const width = document.getElementById("cell_width").value;
+        const height = document.getElementById("cell_height").value;
+        createTable(rows, cols, width, height);
+    });
+    document.getElementById("merge_cells").addEventListener("click", mergeSelected);
+    document.getElementById("split_cells").addEventListener("click", splitSelected);
+    document.getElementById("export_json").addEventListener("click", exportJSON);
+    document.getElementById("import_json").addEventListener("change", e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const data = JSON.parse(ev.target.result);
+            let table = document.createElement("table");
+            table.className = "table table-bordered text-center align-middle";
+            for (const row of data) {
+                let tr = document.createElement("tr");
+                for (const cell of row) {
+                    let td = document.createElement("td");
+                    td.textContent = cell.text || "";
+                    td.rowSpan = cell.rowSpan || 1;
+                    td.colSpan = cell.colSpan || 1;
+                    td.addEventListener("click", () => selectCell(td));
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+            preview.innerHTML = "";
+            preview.appendChild(table);
+        };
+        reader.readAsText(file);
+    });
+});
+</script>
+{% endblock %}
