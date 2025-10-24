@@ -1,0 +1,7 @@
+Flask
+pandas
+flask-wtf
+WTForms
+qrcode
+openpyxl
+pyarrow
